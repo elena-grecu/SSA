@@ -1,0 +1,92 @@
+%% choose a simple article style
+\documentclass[12pt]{article}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{color}
+\usepackage{hyperref}
+\usepackage{listings}
+%% make margins smaller
+\usepackage[margin=1in]{geometry}
+%% make title
+\title{On ODEs equivalent to the Master Equation of probabilistic systems}
+\author{Elena Grecu}
+\date{2024}
+%% begin document
+\begin{document}
+\maketitle
+\section{Introduction}
+In physics and chemistry, a Master Equation (ME) is a set of differential equations that describe the time evolution of a system that can be in a discrete set of states. These equations describe the probabilities of the associated system of transitioning from a given state into another. They are used to model various phenomena, such as chemical reactions, population dynamics, etc. While in principle, all ordinary differential equations (ODEs) are equivalent to a ME, and solvable through probabilistic methods specific to MEs, the benefits of such solutions are limited mainly to ODEs describing the evolutions of populations. In this paper, we will show how to cast an ODE into a ME framework and solve it probabilistically (if beneficial). We will provide a simple but intuitive proof of why the two are equivalent, and why the associated probabilistic solutions work. We will also provide a simple example of a population dynamics ODE and its equivalent ME, and solve the ME using probabilistic methods.  
+\section{The Master Equation}
+Let us assume a system of equations that describes the chemical reactions of two species, A and B, that can react to form a third species, C. The system of equations is given by:
+\begin{align}
+\frac{d[A]}{dt} &= -k_1 [A] [B] + k_2 [C] \\
+\frac{d[B]}{dt} &= -k_1 [A] B + k_2 [C] \\
+\frac{d[C]}{dt} &= k_1 [A] [B] - k_2 [C]
+\end{align}
+where $k_1$ and $k_2$ are the rate constants of the reactions, and $[A]$, $[B]$, and $[C]$ are the concentrations of the three species. The above system of equations can be solved using standard ODE methods. However, it is beneficial to analyze the system in a probabilistic framework. Specifically, given that a molecule of C is formed when a molecule of A and a molecule of B react, we can calculate the probability of the system transitioning from a state with $n_A$ molecules of A and $n_B$ molecules of B to a state with $n_A-1$ molecules of A, $n_B-1$ molecules of B, and $n_C+1$ molecules of C. This is the essence of the Master Equation. Formally, the Master Equation is given by:
+\begin{align}
+\frac{dP(S)}{dt} &= T(S) \cdot P(S)
+\label{eq:ME}
+\end{align}
+where $P(S)$ is the probability of the system being in a given state $S$, and $T(S)$ is a matrix that describes the transition probabilities.  While straightforward to define for the above system of equations, matrix $T(S)$ can be quite complex for more complicated systems. Therefore, instead of explicitly defining $T(S)$, we will outline a simulation algorithm, called the Stochastic Simulation Algorithm (SSA), that enables the derivation of a numerical solution of the Master Equation.
+\section{The Stochastic Simulation Algorithm}
+For simplicity let us assume that we have a system with only one species that undergoes a process resulting in a concentration change. The process can be described by the following ODE:
+\begin{align}
+\frac{d[A]}{dt} &= -k [A] 
+\label{eq:ODE1}
+\end{align}
+where $k$ is the rate constant of the process and $[A]$ is the concentration of the species.  Assuming that the concentration $[A]$ is defined as the number of moles of A divided by the volume of the system $V$, then the number of molecules of A in the system is given by $n_A = N_A \cdot [A] \cdot V$, where $N_A$ is Avogadro's number. We can then calculate the probability of the system transitioning from a state with $n_A$ molecules of A to a state with $n_A-1$ molecules of A by using the following formula:
+
+\begin{align}
+P(n_A \rightarrow n_A-1) &= k \cdot n_A \cdot \Delta t
+\label{eq:prob}
+\end{align}
+
+In the original formulation of Gillespie \cite{Gillespie1977}, the probability of transition $k \cdot n_A \cdot \Delta t$ was formulated as a hypothesis, supported by physical arguments. However, one can calculate the expected number of molecules at time $t+\Delta t$ from the number of molecules at time $t$ and the transition probability $p=n_A \cdot k \cdot \Delta t$ and show that the expected number of molecules at time $t+\Delta t$ is numerically consistent with a finite difference approximation of the ODE.  Specifically,
+\begin{align}
+E[n_A(t+\Delta t)] &= n_A(t) \cdot (1-p) + (n_A(t)-1) \cdot p
+\label{eq:expectation}
+\end{align}
+where $E[n_A(t+\Delta t)]$ is the expected number of molecules at time $t+\Delta t$, and $n_A(t)$ is the number of molecules at time $t$.  The above equation can be expanded to:
+\begin{align}
+E[n_A(t+\Delta t)] &= n_A(t) (1-k  \cdot \Delta t) 
+\label{eq:expectation2}
+\end{align}
+which is equivalent to finite difference approximation of \ref{eq:ODE1}.  Therefore, the transition probability $k \cdot n_A \cdot \Delta t$ is consistent with the ODE.  This is a simple but intuitive proof of why the Master Equation and the ODE are equivalent.  In addition to the probability of transition, to be able to simulate the time evolution of Eq. \ref{eq:ODE1}, one needs to determine the time to the next transition, $\tau$. Variable $\tau$ is a random variable, and generating values for it requires knowledge of its associated probability distribution.  Since we do not know whether $\tau$ is small or large, we can split the time interval $[0,\tau]$ into $N$ small intervals of length $\frac {\tau} {N}$, such as the probability of the system not undergoing a transition within a $\frac {\tau} {N}$ interval is $1-k \cdot n_A \cdot \frac {\tau} {N}$.  Then, the probability of the system transition happening at time $t+\tau$ is given by:
+\begin{align}
+P(n_A \rightarrow n_A-1) &= (1-k \cdot n_A \cdot \frac {\tau} {N})^{N-1} \cdot k \cdot n_A \cdot \frac {\tau} {N}
+\label{eq:prob2}
+\end{align}
+For large $N$, the above equation can be approximated by:
+\begin{align}
+P(n_A \rightarrow n_A-1) &= e^{-k \cdot n_A \cdot \tau} \cdot k \cdot n_A \cdot \frac \tau N
+\label{eq:prob3}
+\end{align}
+because 
+\begin{align}
+\lim_{N \to \infty} (1-k \cdot n_A \cdot \frac {\tau} {N})^{N-1} &= e^{-k \cdot n_A \cdot \tau}
+\label{eq:limit}
+\end{align}
+The value in Eq. \ref{eq:prob3} is the probability of the system transition in the time interval $[t+(N-1) \cdot \frac \tau N,t+\tau]$. If we divide it by $\frac\tau N$, we get the probability the density of probability of the transition happening within $\frac \tau N$ from time $t+\tau$, i.e.:
+\begin{align}
+p(n_A \rightarrow n_A-1) &= e^{-k \cdot n_A \cdot \tau} \cdot k \cdot n_A  
+\label{eq:prob4}
+\end{align}
+This is a probability density function of the type $p(x) = \lambda \cdot e^{-\lambda x}$, where $\lambda = k \cdot n_A$, which is generally known as an exponential distribution \cite{introProb2005}. The cumulative distribution function of the exponential distribution is given by \cite{introProb2005}:
+%% cite reference on exponential distribution
+
+\begin{align}
+F(x) &= 1-e^{-\lambda x}
+\label{eq:cdf}
+\end{align}
+To generate a value for $\tau$, we can generate a random number $r$ from a uniform distribution between 0 and 1, and solve Eq. \ref{eq:cdf} for $\tau$, i.e $r = 1-e^{-\lambda \tau}$, which gives $\tau = -\frac 1 \lambda \cdot \ln(1-r)$
+%% end document
+%% add references
+\begin{thebibliography}{9}
+\bibitem{Gillespie1977}
+Gillespie, D. T. (1977). Exact stochastic simulation of coupled chemical reactions. The Journal of Physical Chemistry, 81(25), 2340-2361.
+\bibitem{introProb2005}
+Dekking FM, Kraaikamp C, Lopuhaä HP, Meester LE. A Modern Introduction to Probability and Statistics: Understanding why and how. London: springer; 2005.
+\end{thebibliography}
+\end{document}
