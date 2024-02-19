@@ -114,12 +114,55 @@ We will now provide an example of the SSA algorithm.  We will consider a system 
 \end{align}
 where $X$ and $Y$ are the populations of the prey and predator, and $\alpha$, $\beta$, $\delta$, and $\gamma$ are the rate constants of the system.  We will assume that the system is initialized with $X=10$ and $Y=5$. We will also assume that $\alpha=0.07$, $\beta=0.005$, $\delta=0.002$, and $\gamma=0.03$. A simulation of the system using a finite-difference solution of the system of equations is shown in Fig. \ref{fig:LV}.  
 %% make the background of the following paragraph yellow
-\colorbox{yellow}{We will now simulate the system using the SSA algorithm.}
+%\colorbox{yellow}{We will now simulate the system using the SSA algorithm.}
 \begin{figure}
 \centering
 \includegraphics[width=0.75\textwidth]{Lotka-Volterra.png}
 \caption{A simulation of the Lotka-Volterra equations using a finite-difference solution.}
 \label{fig:LV}
+\end{figure}
+Before presenting the SSA implementation and the results, it is worth noting that the SSA algorithm is not likely to be accurate for problems involving small populations. This is because as the population decreases, the discrete decrement of the algorithm may result in completely extinct species, while as apparent in the solution shown in Fig. 1, neither species goes extinct, although their populations can become very low. To circumvent this situation, we apply the SSA algorithm to a transformed, but mathematically equivalent to the original, system of Lotka-Volterra equations. Specifically, we transform the original system into one of the type:
+\begin{align}
+\frac{dX'}{dt'} &= \alpha' X' - \beta' X'Y' \\
+\frac{dY'}{dt'} &= \delta' X'Y' - \gamma' Y'
+\label{eq:LV2}
+\end{align}
+where $X'$ and $Y'$ are scaled up populations of the prey and predator, and $\alpha'$, $\beta'$, $\delta'$, and $\gamma'$ are the associated rate constants of the system.  That is $X'=X \cdot s_f$ and $Y'=Y \cdot s_f$, where $s_f$ is a scaling factor.  We use $s_f=100$.  To make the system equivalent to the original, we need to set $\alpha'=\alpha/s_f$, $\beta'=\beta/s_f^2$, $\delta'=\delta/s_f^2$, $\gamma'=\gamma/s_f$, and $t'=t\cdot s_f$. Another observation is that a pray-predator interaction event has different impacts on the pray and predator populations. Therefore, we use $\beta' \cdot X' \cdot Y'$ as propensity function in the system and update the system using $X'=X'-1$ and $Y'=Y'+\frac {\delta} {\beta}$ to make the transitions consistent with the original system of equations.  The SSA algorithm is implemented in the following Python code:
+
+\begin{lstlisting}[language=Python]
+
+def get_tau_and_transition(X,Y,alpha,beta,gamma):
+    tot_prop=alpha*X/s_f+beta*X*Y/s_f**2+gamma*Y/s_f
+    r=np.random.rand()
+    tau=-np.log(r)/tot_prop
+    r=np.random.rand()
+    if r<alpha*X/s_f/tot_prop:
+        return 1,tau
+    elif r<(alpha*X/s_f+beta*X*Y/s_f**2)/tot_prop:
+        return 2,tau
+    else:
+        return 3,tau
+    
+def update_state(X,Y,alpha,beta,gamma,delta):
+    r,tau=get_tau_and_transition(X,Y,alpha,beta,gamma)
+    if r==1:
+        return max(2,X+1),max(2,Y),tau
+    elif r==2:
+        return max(2,X-1),Y+1*delta/beta,tau
+    else:
+        return X,max(2,Y-1),tau
+\end{lstlisting}
+
+The outcome of a simulation using the SSA is shown in Fig. 2. As apparent, the SSA simulation is in good agreement with that produced by the finite-difference solution. Nevertheless, it should be mentioned that the SSA algorithm is computationally more expensive than the finite-difference solution, and is not the best option for problems that do not involve conservation of populations or mass. Specifically, the SSA simulation may drift away from true solution of the system without any objective to determine whether a drift occurred. In systems involving conservation of populations or mass, drifts cannot occur as the number of individuals or their mass is preserved.  In such cases, the SSA algorithm may be a better option than numerical deterministic solutions, especially if the interactions among species are complex and involve some randomness. An example of such a system is the stochastic coalescence of cloud droplets, Gillespie \cite{Gillespie1975}. This is a system of equations that describes the time evolution of the number of cloud droplets of different sizes. The system is a good candidate for the SSA algorithm because the total mass is conserved, i.e. two cloud droplets of mass $m_i$ and $m_j$ can coalesce to form a cloud droplet of size $m_i+m_j$. Deterministic solutions of the system are possible but complicated as they involve the discretization of the mass of the cloud droplets in a large number of bins and then accounting for the interactions among the bins.  The complication stems in the fact that the truncation errors may lead to unphysical solutions (e.g. negative mass in some bins). Moreover, additional processes such as a fragmentation of cloud droplets, which are not easy to model deterministically, can be easily incorporated in the SSA algorithm.
+
+\section{Conclusions}
+In this note, we described the Master Equation associated with some types of ODEs and a Stochastic Simulation Algorithm to solve them. We provided a simple but intuitive proof of why the Master Equation and the ODE are equivalent, and why the associated probabilistic solutions work. We also provided a simple example of a population dynamics system of ODEs, and solved it using the SSA.
+
+\begin{figure}
+\centering
+\includegraphics[width=0.75\textwidth]{Lotka-Volterra_SSA.png}
+\caption{A simulation of the Lotka-Volterra equations using the SSA algorithm.}
+\label{fig:LV_SSA}
 \end{figure}
 %% end document
 %% add references
@@ -130,5 +173,7 @@ Gillespie, D. T. (1977). Exact stochastic simulation of coupled chemical reactio
 Dekking FM, Kraaikamp C, Lopuhaä HP, Meester LE. A Modern Introduction to Probability and Statistics: Understanding why and how. London: springer; 2005.
 \bibitem{Gillespie2007}
 Gillespie DT. Stochastic simulation of chemical kinetics. Annu. Rev. Phys. Chem.. 2007 May 5;58:35-55.
+\bibitem{Gillespie1975}
+Gillespie, D. T., 1975: An Exact Method for Numerically Simulating the Stochastic Coalescence Process in a Cloud. J. Atmos. Sci., 32, 1977\-1989, https://doi.org/10.1175/1520-0469(1975)032.
 \end{thebibliography}
 \end{document}
