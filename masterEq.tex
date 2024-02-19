@@ -11,7 +11,7 @@
 %% make title
 \title{On ODEs equivalent to the Master Equation of probabilistic systems}
 \author{Elena Grecu}
-\date{2024}
+\date{18 February 2024}
 %% begin document
 \begin{document}
 \maketitle
@@ -21,7 +21,7 @@ In physics and chemistry, a Master Equation (ME) is a set of differential equati
 Let us assume a system of equations that describes the chemical reactions of two species, A and B, that can react to form a third species, C. The system of equations is given by:
 \begin{align}
 \frac{d[A]}{dt} &= -k_1 [A] [B] + k_2 [C] \\
-\frac{d[B]}{dt} &= -k_1 [A] B + k_2 [C] \\
+\frac{d[B]}{dt} &= -k_1 [A] [B] + k_2 [C] \\
 \frac{d[C]}{dt} &= k_1 [A] [B] - k_2 [C]
 \end{align}
 where $k_1$ and $k_2$ are the rate constants of the reactions, and $[A]$, $[B]$, and $[C]$ are the concentrations of the three species. The above system of equations can be solved using standard ODE methods. However, it is beneficial to analyze the system in a probabilistic framework. Specifically, given that a molecule of C is formed when a molecule of A and a molecule of B react, we can calculate the probability of the system transitioning from a state with $n_A$ molecules of A and $n_B$ molecules of B to a state with $n_A-1$ molecules of A, $n_B-1$ molecules of B, and $n_C+1$ molecules of C. This is the essence of the Master Equation. Formally, the Master Equation is given by:
@@ -80,7 +80,47 @@ This is a probability density function of the type $p(x) = \lambda \cdot e^{-\la
 F(x) &= 1-e^{-\lambda x}
 \label{eq:cdf}
 \end{align}
-To generate a value for $\tau$, we can generate a random number $r$ from a uniform distribution between 0 and 1, and solve Eq. \ref{eq:cdf} for $\tau$, i.e $r = 1-e^{-\lambda \tau}$, which gives $\tau = -\frac 1 \lambda \cdot \ln(1-r)$
+To generate a value for $\tau$, we can generate a random number $r$ from a uniform distribution between 0 and 1, and solve Eq. \ref{eq:cdf} for $\tau$, i.e $r = 1-e^{-\lambda \tau}$, which gives $\tau = -\frac 1 \lambda \cdot \ln(1-r)$. 
+
+Equation \ref{eq:prob4} may be generalized to systems of equations involving multiple species. Before we do that, let us first define the concept of propensity function. The propensity function is a function that describes the probability of a reaction happening in a very small given time interval $dt$ normalized by $dt$, Gillespie \cite{Gillespie2007}. For example, for equation (6), the propensity function is $k \cdot n_a$, while for the discrete equations associated with the system of  given by Eqs. (1-3), the propensity function of the first reaction is given by $k_1 \cdot n_A \cdot n_B$, and the propensity function of the second reaction is given by $k_2 \cdot n_C$.  For a general system with multiple propensity functions, the probability of the system having a transition in the interval $[t+(N-1)\frac \tau N,t+\tau]$, where $\tau$ and $N$ are defined as in the single species case, is equal to the probability of the system not having any of the possible transitions in the first $N-1$ intervals, and having a transition in the last interval, i.e.
+\begin{align}
+P(S \rightarrow S') &= \prod_{i=1}^{M} (1-\alpha_i \cdot \frac \tau N)^{N-1} \cdot \sum_{i=1}^{M}\alpha_i \cdot \frac \tau N
+\label{eq:prob5}
+\end{align}
+where $\alpha_i$ is the propensity function of the $i$-th reaction out of $M$ possible reactions, and $S$ and $S'$ are the states of the system before and after the transition.  Whe $N$ is large, the above equation can be approximated by:
+\begin{align}
+P(S \rightarrow S') &= e^{-\sum_{i=1}^{M}\alpha_i \cdot \tau} \cdot \sum_{i=1}^{M}\alpha_i \cdot \frac \tau N
+\label{eq:prob6}
+\end{align}
+There $\tau$ in an exponentially distributed random variable with parameter $\lambda = \sum_{i=1}^{M}\alpha_i$.  We can, therefore, as explained above, generate a value for $\tau$ by generating a random number $r$ from a uniform distribution between 0 and 1, and solving Eq. \ref{eq:cdf} for $\tau$ using $\lambda=\sum_{i=1}^{M}\alpha_i$. However, merely generating a value for $\tau$ is not enough to simulate the time evolution of the system. We also need to determine which transition happens at time $t+\tau$. This can be done by generating an additional random number $r$ from a uniform distribution between 0 and 1, and determining which transition happens based on the magnitude of the propensity functions.  Specifically, we can calculate the cumulative distribution function of the propensity functions, and determine which transition happens based on the value of $r$.  Specifically, we can calculate $f_j=\frac {\sum_{i=1}^{j}\alpha_i} {\sum_{i=1}^N \alpha_i}$, and then determine the minimum value of $j$ such that $r<f_j$. Since $f_N=1$, there is always a value of $j$ such that the above condition is satisfied.  We can then determine that the transition that happens is the $j$-th transition. 
+The SSA algorithm can be summarized as follows:
+\begin{enumerate}
+\item Initialize the system at time $t=0$.
+\item Generate a uniformly distributed random number $r_1$ between 0 and 1 and determine $\tau$ from $F(\tau)=r_1$, where $F(\tau)$ is the cumulative distribution function of the exponential distribution with parameter $\lambda=\sum_{i=1}^{M}\alpha_i$.
+\item Generate a (uniformly distributed) value for $r_2$ and determine which transition takes places from $r_2<f_j$.
+\item Update the system by applying the transition that happens at time $t+\tau$.
+\item $t=t+\tau$.
+\item Repeat steps 2-5 until the desired time is reached.
+\end{enumerate}
+
+\section{Example}
+
+%%Y1 = Y2 = 1000
+We will now provide an example of the SSA algorithm.  We will consider a system of equations known as the Lotka-Volterra equations, which describe the dynamics of a predator-prey system. The equations are given by:
+\begin{align}
+\frac{dX}{dt} &= \alpha X - \beta XY \\
+\frac{dY}{dt} &= \delta XY - \gamma Y
+\label{eq:LV}
+\end{align}
+where $X$ and $Y$ are the populations of the prey and predator, and $\alpha$, $\beta$, $\delta$, and $\gamma$ are the rate constants of the system.  We will assume that the system is initialized with $X=10$ and $Y=5$. We will also assume that $\alpha=0.07$, $\beta=0.005$, $\delta=0.002$, and $\gamma=0.03$. A simulation of the system using a finite-difference solution of the system of equations is shown in Fig. \ref{fig:LV}.  
+%% make the background of the following paragraph yellow
+\colorbox{yellow}{We will now simulate the system using the SSA algorithm.}
+\begin{figure}
+\centering
+\includegraphics[width=0.75\textwidth]{Lotka-Volterra.png}
+\caption{A simulation of the Lotka-Volterra equations using a finite-difference solution.}
+\label{fig:LV}
+\end{figure}
 %% end document
 %% add references
 \begin{thebibliography}{9}
@@ -88,5 +128,7 @@ To generate a value for $\tau$, we can generate a random number $r$ from a unifo
 Gillespie, D. T. (1977). Exact stochastic simulation of coupled chemical reactions. The Journal of Physical Chemistry, 81(25), 2340-2361.
 \bibitem{introProb2005}
 Dekking FM, Kraaikamp C, Lopuhaä HP, Meester LE. A Modern Introduction to Probability and Statistics: Understanding why and how. London: springer; 2005.
+\bibitem{Gillespie2007}
+Gillespie DT. Stochastic simulation of chemical kinetics. Annu. Rev. Phys. Chem.. 2007 May 5;58:35-55.
 \end{thebibliography}
 \end{document}
